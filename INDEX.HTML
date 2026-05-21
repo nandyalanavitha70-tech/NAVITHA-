@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Attendance Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --neon-green: #00ff88;
+    --neon-blue: #00d4ff;
+    --glass-border: rgba(0,212,255,0.25);
+    --text-main: #e0f7ff;
+    --text-muted: #7ab8d4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: #020c18;
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #bgCanvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+
+  .page-wrapper { position: relative; z-index: 1; }
+
+  /* HEADER */
+  .college-header {
+    background: linear-gradient(180deg, rgba(0,10,25,0.98), rgba(5,20,45,0.95));
+    border-bottom: 1px solid var(--glass-border);
+    padding: 18px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(20px); position: relative;
+  }
+  .college-header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--neon-blue), var(--neon-green), var(--neon-blue), transparent);
+  }
+
+  .college-logo {
+    width: 82px; height: 82px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid rgba(0,212,255,0.6);
+    box-shadow: 0 0 28px rgba(0,212,255,0.6);
+    animation: pulse-logo 2.5s ease-in-out infinite;
+    background: transparent;
+  }
+  .college-logo img {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+  }
+  @keyframes pulse-logo {
+    0%,100% { box-shadow: 0 0 28px rgba(0,212,255,0.6); }
+    50%      { box-shadow: 0 0 42px rgba(0,255,136,0.8); }
+  }
+
+  .college-info { flex: 1; text-align: center; padding: 0 20px; }
+  .college-name {
+    font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 800;
+    color: var(--neon-blue); text-shadow: 0 0 20px rgba(0,212,255,0.8);
+    letter-spacing: 2px; line-height: 1.3;
+  }
+  .project-title {
+    font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 600;
+    color: var(--neon-green); letter-spacing: 3px; margin-top: 6px;
+    text-shadow: 0 0 15px rgba(0,255,136,0.7);
+    animation: flicker 4s ease-in-out infinite;
+  }
+  @keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:0.6} 98%{opacity:0.7} }
+
+  .authors-section { text-align: right; min-width: 180px; }
+  .authors-label { font-size: 10px; letter-spacing: 3px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+  .author-name { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--neon-green); line-height: 1.8; text-shadow: 0 0 8px rgba(0,255,136,0.4); }
+
+  /* HERO */
+  .hero { text-align: center; padding: 45px 40px 20px; }
+  .hero-title {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(22px, 3.5vw, 42px); font-weight: 900;
+    background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-green) 50%, var(--neon-blue) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; background-size: 200% auto;
+    animation: shimmer 3s linear infinite; margin-bottom: 8px;
+  }
+  @keyframes shimmer { 0%{background-position:0% center} 100%{background-position:200% center} }
+  .hero-sub { font-size: 15px; color: var(--text-muted); letter-spacing: 2px; }
+
+  /* ENTER BUTTON */
+  .enter-section { text-align: center; padding: 18px 0 35px; }
+  .btn-enter {
+    font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700;
+    letter-spacing: 3px; padding: 15px 48px;
+    background: transparent; border: 2px solid var(--neon-green);
+    color: var(--neon-green); cursor: pointer; border-radius: 4px;
+    position: relative; overflow: hidden; transition: all 0.3s; text-transform: uppercase;
+    box-shadow: 0 0 20px rgba(0,255,136,0.3);
+  }
+  .btn-enter::before {
+    content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0,255,136,0.2), transparent); transition: left 0.4s;
+  }
+  .btn-enter:hover::before { left: 100%; }
+  .btn-enter:hover { background: rgba(0,255,136,0.1); box-shadow: 0 0 40px rgba(0,255,136,0.6); transform: translateY(-2px); }
+
+  /* MAIN PANEL */
+  #mainPanel {
+    display: none; max-width: 1200px; margin: 0 auto;
+    padding: 0 30px 60px; animation: fadeIn 0.6s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+  /* TABS */
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 28px;
+    background: rgba(0,10,30,0.6); border: 1px solid var(--glass-border);
+    border-radius: 10px; padding: 6px;
+  }
+  .tab-btn {
+    flex: 1; font-family: 'Orbitron', sans-serif; font-size: 11px;
+    letter-spacing: 2px; padding: 12px 8px; border: none; border-radius: 7px;
+    cursor: pointer; text-transform: uppercase; transition: all 0.3s;
+    background: transparent; color: var(--text-muted);
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,255,136,0.1));
+    color: var(--neon-blue); border: 1px solid rgba(0,212,255,0.3);
+    box-shadow: 0 0 15px rgba(0,212,255,0.2);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text-main); background: rgba(255,255,255,0.04); }
+
+  .tab-content { display: none; animation: fadeIn 0.4s ease; }
+  .tab-content.active { display: block; }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px;
+    color: var(--neon-blue); text-transform: uppercase; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label::before,.section-label::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,var(--neon-blue)); }
+  .section-label::after { background:linear-gradient(90deg,var(--neon-blue),transparent); }
+
+  /* GLASS CARD */
+  .glass-card {
+    background: rgba(0,212,255,0.04); border: 1px solid var(--glass-border);
+    border-radius: 12px; padding: 28px; margin-bottom: 24px;
+    backdrop-filter: blur(10px); position: relative; overflow: hidden;
+  }
+  .glass-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.5), transparent);
+  }
+
+  /* INPUTS */
+  .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 22px; }
+  .input-group label { display:block; font-size:11px; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; margin-bottom:7px; }
+  .input-group input, .input-group select {
+    width: 100%; background: rgba(0,10,30,0.8); border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 6px; padding: 11px 14px; color: var(--text-main);
+    font-family: 'Share Tech Mono', monospace; font-size: 14px; outline: none; transition: all 0.3s;
+  }
+  .input-group input:focus, .input-group select:focus { border-color: var(--neon-blue); box-shadow: 0 0 15px rgba(0,212,255,0.3); }
+  .input-group select option { background: #0a1628; }
+
+  /* BUTTONS */
+  .btn-primary {
+    font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: 2px; padding: 14px 30px; background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,255,136,0.1));
+    border: 1px solid var(--neon-blue); color: var(--neon-blue); cursor: pointer;
+    border-radius: 8px; transition: all 0.3s; text-transform: uppercase;
+  }
+  .btn-primary:hover { box-shadow: 0 0 25px rgba(0,212,255,0.4); transform: translateY(-2px); }
+  .btn-success {
+    font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: 2px; padding: 14px 30px; background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,212,255,0.1));
+    border: 1px solid var(--neon-green); color: var(--neon-green); cursor: pointer;
+    border-radius: 8px; transition: all 0.3s; text-transform: uppercase;
+  }
+  .btn-success:hover { box-shadow: 0 0 25px rgba(0,255,136,0.4); transform: translateY(-2px); }
+  .btn-danger {
+    font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; padding: 6px 14px; background: rgba(255,77,109,0.1);
+    border: 1px solid rgba(255,77,109,0.4); color: #ff4d6d; cursor: pointer;
+    border-radius: 5px; transition: all 0.3s;
+  }
+  .btn-danger:hover { background: rgba(255,77,109,0.2); }
+
+  /* STAT CARDS */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: rgba(0,10,30,0.7); border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 10px; padding: 20px; text-align: center; transition: transform 0.3s; position: relative; overflow: hidden;
+  }
+  .stat-card:hover { transform: translateY(-4px); }
+  .stat-card::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--neon-green); box-shadow:0 0 8px var(--neon-green); }
+  .stat-card.blue::after { background:var(--neon-blue); box-shadow:0 0 8px var(--neon-blue); }
+  .stat-card.warn::after { background:#ffd700; box-shadow:0 0 8px #ffd700; }
+  .stat-card.danger::after { background:#ff4d6d; box-shadow:0 0 8px #ff4d6d; }
+  .stat-val { font-family:'Orbitron',sans-serif; font-size:34px; font-weight:900; color:var(--neon-green); text-shadow:0 0 18px rgba(0,255,136,0.7); line-height:1; margin-bottom:8px; }
+  .stat-card.blue .stat-val { color:var(--neon-blue); text-shadow:0 0 18px rgba(0,212,255,0.7); }
+  .stat-card.warn .stat-val { color:#ffd700; text-shadow:0 0 18px rgba(255,215,0,0.7); }
+  .stat-card.danger .stat-val { color:#ff4d6d; text-shadow:0 0 18px rgba(255,77,109,0.7); }
+  .stat-lbl { font-size:11px; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; }
+
+  /* MARK ATTENDANCE — STUDENT CARDS */
+  .student-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .student-att-card {
+    background: rgba(0,10,30,0.7); border: 1px solid var(--glass-border);
+    border-radius: 10px; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: all 0.3s;
+  }
+  .student-att-card.present { border-color: rgba(0,255,136,0.5); background: rgba(0,255,136,0.05); }
+  .student-att-card.absent  { border-color: rgba(255,77,109,0.5); background: rgba(255,77,109,0.05); }
+  .student-att-info .s-name { font-family:'Share Tech Mono',monospace; font-size:14px; color:var(--text-main); }
+  .student-att-info .s-roll { font-size:11px; color:var(--text-muted); letter-spacing:1px; margin-top:3px; }
+  .att-toggle { display:flex; gap:8px; }
+  .att-toggle button {
+    font-family:'Orbitron',sans-serif; font-size:10px; font-weight:700;
+    letter-spacing:1px; padding:7px 14px; border-radius:5px; cursor:pointer; transition:all 0.3s; border:1px solid;
+  }
+  .btn-present { background:rgba(0,255,136,0.1); border-color:rgba(0,255,136,0.4); color:var(--neon-green); }
+  .btn-present.selected { background:rgba(0,255,136,0.3); border-color:var(--neon-green); box-shadow:0 0 10px rgba(0,255,136,0.4); }
+  .btn-absent  { background:rgba(255,77,109,0.1); border-color:rgba(255,77,109,0.4); color:#ff4d6d; }
+  .btn-absent.selected  { background:rgba(255,77,109,0.3); border-color:#ff4d6d; box-shadow:0 0 10px rgba(255,77,109,0.4); }
+
+  /* TABLE */
+  .att-table { width:100%; border-collapse:collapse; font-size:14px; }
+  .att-table th { font-family:'Orbitron',sans-serif; font-size:10px; letter-spacing:2px; color:var(--neon-blue); text-transform:uppercase; padding:11px 14px; border-bottom:1px solid rgba(0,212,255,0.2); text-align:left; }
+  .att-table td { padding:11px 14px; border-bottom:1px solid rgba(255,255,255,0.04); font-family:'Share Tech Mono',monospace; font-size:13px; }
+  .att-table tr:hover td { background:rgba(0,212,255,0.04); }
+  .badge { display:inline-block; padding:3px 12px; border-radius:12px; font-size:11px; font-family:'Orbitron',sans-serif; letter-spacing:1px; font-weight:700; }
+  .badge-present { background:rgba(0,255,136,0.15); color:var(--neon-green); border:1px solid rgba(0,255,136,0.3); }
+  .badge-absent  { background:rgba(255,77,109,0.15); color:#ff4d6d; border:1px solid rgba(255,77,109,0.3); }
+  .badge-low     { background:rgba(255,77,109,0.15); color:#ff4d6d; border:1px solid rgba(255,77,109,0.3); }
+  .badge-ok      { background:rgba(255,215,0,0.15); color:#ffd700; border:1px solid rgba(255,215,0,0.3); }
+  .badge-good    { background:rgba(0,255,136,0.15); color:var(--neon-green); border:1px solid rgba(0,255,136,0.3); }
+
+  /* CHARTS */
+  .charts-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:22px; margin-bottom:24px; }
+  .chart-card { background:rgba(0,10,30,0.7); border:1px solid var(--glass-border); border-radius:12px; padding:22px; }
+  .chart-title { font-family:'Orbitron',sans-serif; font-size:11px; letter-spacing:3px; color:var(--neon-blue); text-transform:uppercase; margin-bottom:14px; }
+  .chart-container { position:relative; height:210px; }
+
+  /* TOAST */
+  .toast {
+    position:fixed; bottom:30px; right:30px; z-index:999;
+    background:rgba(0,20,40,0.95); border:1px solid var(--neon-green);
+    border-radius:10px; padding:14px 24px;
+    font-family:'Orbitron',sans-serif; font-size:12px; letter-spacing:2px;
+    color:var(--neon-green); box-shadow:0 0 20px rgba(0,255,136,0.3);
+    transform:translateY(80px); opacity:0; transition:all 0.4s;
+  }
+  .toast.show { transform:translateY(0); opacity:1; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { background:rgba(255,255,255,0.06); border-radius:6px; height:10px; overflow:hidden; margin-top:6px; }
+  .progress-fill { height:100%; border-radius:6px; transition:width 0.8s ease; }
+
+  /* SEARCH */
+  .search-bar {
+    width:100%; background:rgba(0,10,30,0.8); border:1px solid rgba(0,212,255,0.3);
+    border-radius:8px; padding:12px 18px; color:var(--text-main);
+    font-family:'Share Tech Mono',monospace; font-size:14px; outline:none; margin-bottom:18px; transition:all 0.3s;
+  }
+  .search-bar:focus { border-color:var(--neon-blue); box-shadow:0 0 15px rgba(0,212,255,0.3); }
+
+  /* AI ADVISOR BOX */
+  .ai-box {
+    background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.25);
+    border-radius:10px; padding:20px 24px; margin-bottom:22px; position:relative; display:none;
+  }
+  .ai-box-tag {
+    position:absolute; top:-11px; left:20px;
+    background:var(--neon-green); color:#020c18;
+    font-family:'Orbitron',sans-serif; font-size:10px; font-weight:700; letter-spacing:2px; padding:3px 12px; border-radius:3px;
+  }
+  .ai-box p { font-size:15px; line-height:1.7; color:var(--text-main); }
+
+  @media(max-width:600px){
+    .college-header{flex-direction:column;gap:12px;text-align:center;padding:16px;}
+    .authors-section{text-align:center;}
+    .college-name{font-size:15px;}
+    #mainPanel{padding:0 14px 40px;}
+  }
+
+  ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:#020c18} ::-webkit-scrollbar-thumb{background:rgba(0,212,255,0.3);border-radius:3px}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="page-wrapper">
+
+  <!-- COLLEGE HEADER -->
+  <header class="college-header">
+    <div class="college-logo">
+      <img src="data:image/png;base64,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" alt="S V College of Engineering Logo" />
+    </div>
+    <div class="college-info">
+      <div class="college-name">S V COLLEGE OF ENGINEERING, PUTTUR</div>
+      <div class="project-title">⬡ &nbsp; STUDENT ATTENDANCE MANAGEMENT SYSTEM &nbsp; ⬡</div>
+    </div>
+    <div class="authors-section">
+      <div class="authors-label">Project Team</div>
+      <div class="author-name">▸ Navitha</div>
+      <div class="author-name">▸ Pandu</div>
+      <div class="author-name">▸ Swetha</div>
+      <div class="author-name">▸ Charan</div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-title">ATTENDANCE MANAGEMENT SYSTEM</div>
+    <div class="hero-sub">Add Students &nbsp;·&nbsp; Mark Attendance &nbsp;·&nbsp; View Reports &nbsp;·&nbsp; Analytics</div>
+  </div>
+
+  <div class="enter-section">
+    <button class="btn-enter" onclick="openPanel()">⬡ &nbsp; ENTER MANAGEMENT SYSTEM &nbsp; ⬡</button>
+  </div>
+
+  <!-- MAIN PANEL -->
+  <div id="mainPanel">
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('addStudent')">➕ Add Student</button>
+      <button class="tab-btn" onclick="switchTab('markAtt')">✅ Mark Attendance</button>
+      <button class="tab-btn" onclick="switchTab('records')">📋 Records</button>
+      <button class="tab-btn" onclick="switchTab('reports')">📈 Reports</button>
+    </div>
+
+    <!-- TAB 1: DASHBOARD -->
+    <div class="tab-content active" id="tab-dashboard">
+      <div class="section-label">Overview</div>
+      <div class="stat-grid">
+        <div class="stat-card blue"><div class="stat-val" id="ds-total">0</div><div class="stat-lbl">Total Students</div></div>
+        <div class="stat-card" id="ds-card-avg"><div class="stat-val" id="ds-avg">0%</div><div class="stat-lbl">Avg Attendance</div></div>
+        <div class="stat-card warn"><div class="stat-val" id="ds-sessions">0</div><div class="stat-lbl">Sessions Held</div></div>
+        <div class="stat-card danger"><div class="stat-val" id="ds-low">0</div><div class="stat-lbl">Below 75%</div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">📊 Department-wise Students</div>
+          <div class="chart-container"><canvas id="deptChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🍩 Overall Attendance</div>
+          <div class="chart-container"><canvas id="overallDonut"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">📈 Attendance Trend (Sessions)</div>
+          <div class="chart-container"><canvas id="trendChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">📉 Student-wise Attendance %</div>
+          <div class="chart-container"><canvas id="studentBarChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="ai-box" id="dashAiBox">
+        <div class="ai-box-tag">⬡ AI ADVISOR</div>
+        <p id="dashAiText"></p>
+      </div>
+    </div>
+
+    <!-- TAB 2: ADD STUDENT -->
+    <div class="tab-content" id="tab-addStudent">
+      <div class="section-label">Add New Student</div>
+      <div class="glass-card">
+        <div class="input-grid">
+          <div class="input-group">
+            <label>Student Name</label>
+            <input type="text" id="sName" placeholder="e.g. Ravi Kumar" />
+          </div>
+          <div class="input-group">
+            <label>Roll Number</label>
+            <input type="text" id="sRoll" placeholder="e.g. 21CSE045" />
+          </div>
+          <div class="input-group">
+            <label>Department</label>
+            <select id="sDept">
+              <option>Computer Science</option>
+              <option>Electronics &amp; Comm</option>
+              <option>Mechanical</option>
+              <option>Civil Engineering</option>
+              <option>Information Technology</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Semester</label>
+            <select id="sSem">
+              <option>1st Semester</option><option>2nd Semester</option>
+              <option>3rd Semester</option><option>4th Semester</option>
+              <option>5th Semester</option><option>6th Semester</option>
+              <option>7th Semester</option><option>8th Semester</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Gender</label>
+            <select id="sGender"><option>Male</option><option>Female</option><option>Other</option></select>
+          </div>
+          <div class="input-group">
+            <label>Phone Number</label>
+            <input type="text" id="sPhone" placeholder="e.g. 9876543210" />
+          </div>
+        </div>
+        <button class="btn-success" onclick="addStudent()">⬡ &nbsp; ADD STUDENT</button>
+      </div>
+
+      <div class="section-label">Student List</div>
+      <input class="search-bar" id="searchStudents" placeholder="🔍  Search by name or roll number..." oninput="renderStudentTable()" />
+      <div class="glass-card" style="padding:0;overflow:auto">
+        <table class="att-table">
+          <thead><tr>
+            <th>#</th><th>Name</th><th>Roll No</th><th>Department</th><th>Semester</th><th>Gender</th><th>Phone</th><th>Action</th>
+          </tr></thead>
+          <tbody id="studentTableBody">
+            <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">No students added yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: MARK ATTENDANCE -->
+    <div class="tab-content" id="tab-markAtt">
+      <div class="section-label">Mark Attendance</div>
+      <div class="glass-card">
+        <div class="input-grid">
+          <div class="input-group">
+            <label>Date</label>
+            <input type="date" id="attDate" />
+          </div>
+          <div class="input-group">
+            <label>Department</label>
+            <select id="attDept" onchange="loadAttStudents()">
+              <option value="">-- All Departments --</option>
+              <option>Computer Science</option>
+              <option>Electronics &amp; Comm</option>
+              <option>Mechanical</option>
+              <option>Civil Engineering</option>
+              <option>Information Technology</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Subject</label>
+            <input type="text" id="attSubject" placeholder="e.g. Mathematics" />
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+          <button class="btn-primary" onclick="loadAttStudents()">⬡ Load Students</button>
+          <button class="btn-success" onclick="markAllPresent()">✅ Mark All Present</button>
+          <button class="btn-danger" style="padding:14px 20px;" onclick="markAllAbsent()">✗ Mark All Absent</button>
+        </div>
+        <div id="attStudentList" class="student-list">
+          <p style="color:var(--text-muted);font-size:14px;">Load students to begin marking attendance.</p>
+        </div>
+        <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn-success" onclick="saveAttendance()" style="font-size:14px;padding:16px 40px;">⬡ &nbsp; SAVE ATTENDANCE SESSION</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: RECORDS -->
+    <div class="tab-content" id="tab-records">
+      <div class="section-label">Attendance Records</div>
+      <div class="glass-card" style="padding:18px 24px;margin-bottom:18px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div class="input-group" style="flex:1;min-width:180px;">
+            <label>Filter by Department</label>
+            <select id="filterDept" onchange="renderRecords()">
+              <option value="">All</option>
+              <option>Computer Science</option>
+              <option>Electronics &amp; Comm</option>
+              <option>Mechanical</option>
+              <option>Civil Engineering</option>
+              <option>Information Technology</option>
+            </select>
+          </div>
+          <div class="input-group" style="flex:1;min-width:180px;">
+            <label>Filter by Date</label>
+            <input type="date" id="filterDate" onchange="renderRecords()" />
+          </div>
+          <button class="btn-primary" onclick="clearFilters()" style="height:46px;margin-bottom:0;">Clear</button>
+        </div>
+      </div>
+      <div class="glass-card" style="padding:0;overflow:auto">
+        <table class="att-table">
+          <thead><tr>
+            <th>Date</th><th>Student</th><th>Roll No</th><th>Department</th><th>Subject</th><th>Status</th>
+          </tr></thead>
+          <tbody id="recordsBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">No attendance records yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 5: REPORTS -->
+    <div class="tab-content" id="tab-reports">
+      <div class="section-label">Student-wise Report</div>
+      <input class="search-bar" id="searchReport" placeholder="🔍  Search student..." oninput="renderReport()" />
+      <div class="glass-card" style="padding:0;overflow:auto">
+        <table class="att-table">
+          <thead><tr>
+            <th>#</th><th>Name</th><th>Roll No</th><th>Dept</th><th>Present</th><th>Absent</th><th>Total</th><th>Percentage</th><th>Status</th>
+          </tr></thead>
+          <tbody id="reportBody">
+            <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">No data available.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /mainPanel -->
+
+  <div style="text-align:center;padding:28px;border-top:1px solid var(--glass-border);color:var(--text-muted);font-size:12px;letter-spacing:2px;">
+    © 2026 &nbsp; S V College of Engineering, Puttur &nbsp;·&nbsp; Student Attendance Management System
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ANIMATED BACKGROUND */
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W, H, stars = [], particles = [], tailDrops = [], bamboos = [];
+
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; buildScene(); }
+
+function buildScene() {
+  stars = [];
+  for (let i = 0; i < 160; i++) stars.push({ x: Math.random()*W, y: Math.random()*H*0.75, r: Math.random()*1.5+0.3, a: Math.random(), da: (Math.random()-0.5)*0.015 });
+  particles = [];
+  for (let i = 0; i < 50; i++) particles.push({ x: Math.random()*W, y: Math.random()*H, vx: (Math.random()-0.5)*0.4, vy: -(Math.random()*0.3+0.1), r: Math.random()*2.5+0.5, a: Math.random(), life: Math.random() });
+  tailDrops = [];
+  for (let i = 0; i < 6; i++) spawnTail();
+  bamboos = [
+    { x: 60,  baseY: H, segments: 14, lean: -0.05, thick: 14 },
+    { x: 110, baseY: H, segments: 16, lean: 0.03,  thick: 10 },
+    { x: 155, baseY: H, segments: 12, lean: -0.08, thick: 7  },
+  ];
+}
+
+function spawnTail() {
+  tailDrops.push({ x: Math.random()*W, y: Math.random()*H*0.5, vx: 0.4+Math.random()*0.6, vy: 0.4+Math.random()*0.5, life: 1, tail: [] });
+}
+
+function drawMoon() {
+  const mx = W*0.86, my = H*0.14, mr = 65;
+  for (let i = 4; i > 0; i--) {
+    const g = ctx.createRadialGradient(mx,my,mr*0.6,mx,my,mr*(1+i*0.5));
+    g.addColorStop(0,`rgba(180,230,255,${0.04/i})`); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(mx,my,mr*(1+i*0.5),0,Math.PI*2); ctx.fill();
+  }
+  const mg = ctx.createRadialGradient(mx-20,my-20,10,mx,my,mr);
+  mg.addColorStop(0,'#d4eeff'); mg.addColorStop(0.6,'#a0c8e8'); mg.addColorStop(1,'#6a9db8');
+  ctx.fillStyle=mg; ctx.beginPath(); ctx.arc(mx,my,mr,0,Math.PI*2); ctx.fill();
+  [[mx-15,my-20,8],[mx+22,my+10,6],[mx-5,my+28,5],[mx+10,my-30,4]].forEach(([cx,cy,cr]) => {
+    ctx.beginPath(); ctx.arc(cx,cy,cr,0,Math.PI*2); ctx.fillStyle='rgba(90,130,160,0.3)'; ctx.fill();
+  });
+}
+
+function drawBamboos() {
+  bamboos.forEach(b => {
+    let x = b.x, y = b.baseY, thick = b.thick;
+    for (let i = 0; i < b.segments; i++) {
+      const nx = x+b.lean*45, ny = y-45;
+      ctx.beginPath(); ctx.moveTo(x-thick/2,y); ctx.lineTo(nx-thick/2,ny); ctx.lineTo(nx+thick/2*0.7,ny); ctx.lineTo(x+thick/2*0.7,y);
+      ctx.fillStyle=`rgba(0,${Math.min(180,60+i*8)},${20+i*3},${0.85-i*0.03})`; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x-thick/2,y); ctx.lineTo(x+thick/2*0.7,y);
+      ctx.strokeStyle='rgba(0,180,60,0.5)'; ctx.lineWidth=2; ctx.stroke();
+      if (i > b.segments/2 && i%2===0) {
+        const s = i%3===0?1:-1;
+        ctx.beginPath(); ctx.moveTo(nx,ny); ctx.quadraticCurveTo(nx+s*35,ny-20,nx+s*55,ny-10); ctx.quadraticCurveTo(nx+s*40,ny-5,nx,ny);
+        ctx.fillStyle=`rgba(0,${150+i*3},40,0.55)`; ctx.fill();
+      }
+      x=nx; y=ny; thick=Math.max(thick-0.35,2);
+    }
+  });
+}
+
+function draw() {
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#010810'); bg.addColorStop(0.5,'#03122a'); bg.addColorStop(1,'#000a06');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  stars.forEach(s => { s.a+=s.da; if(s.a<=0||s.a>=1)s.da*=-1; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fillStyle=`rgba(180,230,255,${s.a})`; ctx.fill(); });
+  drawMoon();
+  const fog = ctx.createLinearGradient(0,H*0.82,0,H); fog.addColorStop(0,'rgba(0,30,20,0)'); fog.addColorStop(1,'rgba(0,20,15,0.7)');
+  ctx.fillStyle=fog; ctx.fillRect(0,H*0.82,W,H*0.18);
+  drawBamboos();
+  tailDrops.forEach((t,i) => {
+    t.tail.push({x:t.x,y:t.y,a:t.life}); if(t.tail.length>22)t.tail.shift();
+    t.tail.forEach((pt,j) => { const alpha=(j/t.tail.length)*t.life*0.6; ctx.beginPath(); ctx.arc(pt.x,pt.y,1.2,0,Math.PI*2); ctx.fillStyle=`rgba(0,220,255,${alpha})`; ctx.fill(); });
+    ctx.beginPath(); ctx.arc(t.x,t.y,2.5,0,Math.PI*2); ctx.fillStyle=`rgba(180,255,255,${t.life})`; ctx.fill();
+    t.x+=t.vx; t.y+=t.vy; t.life-=0.008;
+    if(t.life<=0||t.x>W+50||t.y>H+50){tailDrops.splice(i,1);spawnTail();}
+  });
+  particles.forEach(p => {
+    p.x+=p.vx; p.y+=p.vy; p.life+=0.005; if(p.y<-10||p.life>1){p.y=H+5;p.x=Math.random()*W;p.life=0;}
+    const fade=Math.sin(p.life*Math.PI); ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(0,255,136,${fade*0.5})`; ctx.fill();
+  });
+  requestAnimationFrame(draw);
+}
+window.addEventListener('resize',resize); resize(); draw();
+</script>
+
+<script>
+/* APP DATA & LOGIC */
+let students   = JSON.parse(localStorage.getItem('sams_students') || '[]');
+let attendance = JSON.parse(localStorage.getItem('sams_attendance') || '[]');
+let charts = {};
+
+function save() {
+  localStorage.setItem('sams_students', JSON.stringify(students));
+  localStorage.setItem('sams_attendance', JSON.stringify(attendance));
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function openPanel() {
+  const p = document.getElementById('mainPanel');
+  p.style.display = 'block';
+  p.scrollIntoView({ behavior: 'smooth' });
+  refreshAll();
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const tabs = ['dashboard','addStudent','markAtt','records','reports'];
+  document.querySelectorAll('.tab-btn')[tabs.indexOf(id)].classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  if (id === 'dashboard') updateDashboard();
+  if (id === 'records')   renderRecords();
+  if (id === 'reports')   renderReport();
+  if (id === 'addStudent') renderStudentTable();
+}
+
+function addStudent() {
+  const name  = document.getElementById('sName').value.trim();
+  const roll  = document.getElementById('sRoll').value.trim();
+  const dept  = document.getElementById('sDept').value;
+  const sem   = document.getElementById('sSem').value;
+  const gender= document.getElementById('sGender').value;
+  const phone = document.getElementById('sPhone').value.trim();
+  if (!name || !roll) { toast('⚠ Name and Roll Number are required!'); return; }
+  if (students.find(s => s.roll === roll)) { toast('⚠ Roll number already exists!'); return; }
+  students.push({ id: Date.now(), name, roll, dept, sem, gender, phone });
+  save();
+  ['sName','sRoll','sPhone'].forEach(id => document.getElementById(id).value = '');
+  renderStudentTable();
+  toast('✅ Student added successfully!');
+}
+
+function deleteStudent(id) {
+  if (!confirm('Delete this student?')) return;
+  students = students.filter(s => s.id !== id);
+  attendance = attendance.filter(a => a.studentId !== id);
+  save(); renderStudentTable(); toast('🗑 Student removed.');
+}
+
+function renderStudentTable() {
+  const q = (document.getElementById('searchStudents')?.value || '').toLowerCase();
+  const filtered = students.filter(s => s.name.toLowerCase().includes(q) || s.roll.toLowerCase().includes(q));
+  const tbody = document.getElementById('studentTableBody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">No students found.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map((s,i) => `
+    <tr>
+      <td style="color:var(--text-muted)">${i+1}</td>
+      <td style="color:var(--neon-blue)">${s.name}</td>
+      <td><span style="font-family:Share Tech Mono,monospace">${s.roll}</span></td>
+      <td>${s.dept}</td><td>${s.sem}</td><td>${s.gender}</td>
+      <td>${s.phone||'-'}</td>
+      <td><button class="btn-danger" onclick="deleteStudent(${s.id})">Delete</button></td>
+    </tr>`).join('');
+}
+
+function loadAttStudents() {
+  const dept = document.getElementById('attDept').value;
+  const list = dept ? students.filter(s => s.dept === dept) : students;
+  const container = document.getElementById('attStudentList');
+  if (!list.length) { container.innerHTML='<p style="color:var(--text-muted);font-size:14px;">No students found for this department.</p>'; return; }
+  container.innerHTML = list.map(s => `
+    <div class="student-att-card" id="acard-${s.id}">
+      <div class="student-att-info">
+        <div class="s-name">${s.name}</div>
+        <div class="s-roll">${s.roll} &nbsp;·&nbsp; ${s.dept}</div>
+      </div>
+      <div class="att-toggle">
+        <button class="btn-present" id="p-${s.id}" onclick="setAtt(${s.id},'present')">P</button>
+        <button class="btn-absent"  id="a-${s.id}" onclick="setAtt(${s.id},'absent')">A</button>
+      </div>
+    </div>`).join('');
+}
+
+function setAtt(id, status) {
+  const card = document.getElementById('acard-'+id);
+  const pb = document.getElementById('p-'+id);
+  const ab = document.getElementById('a-'+id);
+  pb.classList.toggle('selected', status==='present');
+  ab.classList.toggle('selected', status==='absent');
+  card.className = 'student-att-card ' + status;
+  card.dataset.status = status;
+}
+
+function markAllPresent() {
+  document.querySelectorAll('.student-att-card').forEach(card => {
+    const id = card.id.replace('acard-','');
+    setAtt(id, 'present');
+  });
+}
+function markAllAbsent() {
+  document.querySelectorAll('.student-att-card').forEach(card => {
+    const id = card.id.replace('acard-','');
+    setAtt(id, 'absent');
+  });
+}
+
+function saveAttendance() {
+  const date    = document.getElementById('attDate').value;
+  const subject = document.getElementById('attSubject').value.trim() || 'General';
+  if (!date) { toast('⚠ Please select a date!'); return; }
+  const cards = document.querySelectorAll('.student-att-card');
+  if (!cards.length) { toast('⚠ Load students first!'); return; }
+  let count = 0;
+  cards.forEach(card => {
+    const sid    = parseInt(card.id.replace('acard-',''));
+    const status = card.dataset.status || 'absent';
+    const student = students.find(s => s.id === sid);
+    if (!student) return;
+    attendance = attendance.filter(a => !(a.studentId===sid && a.date===date && a.subject===subject));
+    attendance.push({ studentId: sid, date, subject, status, dept: student.dept, name: student.name, roll: student.roll });
+    count++;
+  });
+  save();
+  toast(`✅ Attendance saved for ${count} students!`);
+  updateDashboard();
+}
+
+function renderRecords() {
+  const dept = document.getElementById('filterDept')?.value || '';
+  const date = document.getElementById('filterDate')?.value || '';
+  let filtered = [...attendance];
+  if (dept) filtered = filtered.filter(a => a.dept === dept);
+  if (date) filtered = filtered.filter(a => a.date === date);
+  filtered.sort((a,b) => b.date.localeCompare(a.date));
+  const tbody = document.getElementById('recordsBody');
+  if (!filtered.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">No records found.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(a => `
+    <tr>
+      <td>${a.date}</td>
+      <td style="color:var(--neon-blue)">${a.name}</td>
+      <td>${a.roll}</td><td>${a.dept}</td><td>${a.subject}</td>
+      <td><span class="badge ${a.status==='present'?'badge-present':'badge-absent'}">${a.status.toUpperCase()}</span></td>
+    </tr>`).join('');
+}
+
+function clearFilters() {
+  document.getElementById('filterDept').value='';
+  document.getElementById('filterDate').value='';
+  renderRecords();
+}
+
+function getStudentStats(student) {
+  const recs = attendance.filter(a => a.studentId === student.id);
+  const present = recs.filter(a => a.status === 'present').length;
+  const total   = recs.length;
+  const pct     = total ? Math.round((present/total)*100) : 0;
+  return { present, absent: total-present, total, pct };
+}
+
+function renderReport() {
+  const q = (document.getElementById('searchReport')?.value || '').toLowerCase();
+  const filtered = students.filter(s => s.name.toLowerCase().includes(q) || s.roll.toLowerCase().includes(q));
+  const tbody = document.getElementById('reportBody');
+  if (!filtered.length) { tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">No students found.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map((s,i) => {
+    const st = getStudentStats(s);
+    const cls = st.pct >= 75 ? 'badge-good' : st.pct >= 60 ? 'badge-ok' : 'badge-low';
+    const lbl = st.pct >= 75 ? 'GOOD' : st.pct >= 60 ? 'AT RISK' : 'LOW';
+    const barColor = st.pct >= 75 ? '#00ff88' : st.pct >= 60 ? '#ffd700' : '#ff4d6d';
+    return `<tr>
+      <td style="color:var(--text-muted)">${i+1}</td>
+      <td style="color:var(--neon-blue)">${s.name}</td>
+      <td>${s.roll}</td><td>${s.dept}</td>
+      <td style="color:#00ff88">${st.present}</td>
+      <td style="color:#ff4d6d">${st.absent}</td>
+      <td>${st.total}</td>
+      <td>
+        <div style="font-family:Share Tech Mono,monospace;font-size:13px;margin-bottom:4px;color:${barColor}">${st.pct}%</div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:${st.pct}%;background:${barColor}"></div></div>
+      </td>
+      <td><span class="badge ${cls}">${lbl}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateDashboard() {
+  const total = students.length;
+  document.getElementById('ds-total').textContent = total;
+
+  const sessions = [...new Set(attendance.map(a => a.date+a.subject+a.dept))].length;
+  document.getElementById('ds-sessions').textContent = sessions;
+
+  const stats = students.map(s => getStudentStats(s));
+  const avgPct = total ? Math.round(stats.reduce((s,st)=>s+st.pct,0)/total) : 0;
+  const lowCount = stats.filter(st => st.pct < 75 && st.total > 0).length;
+  document.getElementById('ds-avg').textContent = avgPct + '%';
+  document.getElementById('ds-low').textContent = lowCount;
+
+  const avgCard = document.getElementById('ds-card-avg');
+  avgCard.className = 'stat-card' + (avgPct>=75?'':avgPct>=60?' warn':' danger');
+
+  buildDashCharts(avgPct, stats);
+  showAiAdvice(total, avgPct, lowCount, sessions);
+}
+
+function buildDashCharts(avgPct, stats) {
+  const cc = { color:'#7ab8d4', grid:'rgba(0,212,255,0.08)' };
+
+  const depts = ['Computer Science','Electronics & Comm','Mechanical','Civil Engineering','Information Technology'];
+  const deptCounts = depts.map(d => students.filter(s => s.dept===d).length);
+  if (charts.dept) charts.dept.destroy();
+  charts.dept = new Chart(document.getElementById('deptChart'), {
+    type:'bar',
+    data:{ labels:['CS','ECE','Mech','Civil','IT'],
+      datasets:[{data:deptCounts,backgroundColor:['rgba(0,212,255,0.7)','rgba(0,255,136,0.7)','rgba(255,215,0,0.7)','rgba(255,77,109,0.7)','rgba(180,100,255,0.7)'],borderRadius:4}]},
+    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:cc.color,font:{size:10}},grid:{display:false}},y:{ticks:{color:cc.color,font:{size:10}},grid:{color:cc.grid}}}}
+  });
+
+  const totalPres = stats.reduce((s,st)=>s+st.present,0);
+  const totalAbs  = stats.reduce((s,st)=>s+st.absent,0);
+  if (charts.donut) charts.donut.destroy();
+  charts.donut = new Chart(document.getElementById('overallDonut'), {
+    type:'doughnut',
+    data:{ labels:['Present','Absent'],
+      datasets:[{data:[totalPres||1,totalAbs||0],backgroundColor:['rgba(0,255,136,0.8)','rgba(255,77,109,0.7)'],borderColor:['#00ff88','#ff4d6d'],borderWidth:1}]},
+    options:{ responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{labels:{color:cc.color,font:{size:12}}}}}
+  });
+
+  const dateMap = {};
+  attendance.forEach(a => { if (!dateMap[a.date]) dateMap[a.date]={p:0,t:0}; dateMap[a.date].t++; if(a.status==='present')dateMap[a.date].p++; });
+  const sortedDates = Object.keys(dateMap).sort().slice(-10);
+  const trendVals = sortedDates.map(d => Math.round((dateMap[d].p/dateMap[d].t)*100));
+  if (charts.trend) charts.trend.destroy();
+  charts.trend = new Chart(document.getElementById('trendChart'), {
+    type:'line',
+    data:{ labels: sortedDates.length ? sortedDates : ['No Data'],
+      datasets:[{data:trendVals.length?trendVals:[0],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.08)',tension:0.4,fill:true,pointBackgroundColor:'#00d4ff',pointRadius:4}]},
+    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:cc.color,font:{size:10}},grid:{color:cc.grid}},y:{min:0,max:100,ticks:{color:cc.color,font:{size:10}},grid:{color:cc.grid}}}}
+  });
+
+  const top10 = students.slice(0,10);
+  const barData = top10.map(s=>getStudentStats(s).pct);
+  const barColors = barData.map(v=>v>=75?'rgba(0,255,136,0.75)':v>=60?'rgba(255,215,0,0.75)':'rgba(255,77,109,0.75)');
+  if (charts.sbar) charts.sbar.destroy();
+  charts.sbar = new Chart(document.getElementById('studentBarChart'), {
+    type:'bar',
+    data:{ labels:top10.map(s=>s.name.split(' ')[0]),
+      datasets:[{data:barData,backgroundColor:barColors,borderRadius:4}]},
+    options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:cc.color,font:{size:10}},grid:{display:false}},y:{min:0,max:100,ticks:{color:cc.color,font:{size:10}},grid:{color:cc.grid}}}}
+  });
+}
+
+function showAiAdvice(total, avg, low, sessions) {
+  const box = document.getElementById('dashAiBox');
+  const txt = document.getElementById('dashAiText');
+  if (!total) { box.style.display='none'; return; }
+  box.style.display='block';
+  let msg = '';
+  if (avg >= 85)       msg = `✅ Excellent! Overall attendance is ${avg}% across ${total} students with ${sessions} sessions recorded. ${low} student(s) are below 75%. The system is performing well — keep monitoring regularly.`;
+  else if (avg >= 75)  msg = `⚠️ Attendance is at ${avg}% — within the acceptable range but ${low} student(s) are below the 75% threshold. Review their records and notify them immediately to improve attendance.`;
+  else                 msg = `🚨 ALERT: Overall attendance has dropped to ${avg}%. ${low} out of ${total} students are below 75% eligibility. Immediate action required — send notifications, schedule meetings with concerned students and faculty.`;
+  txt.textContent = msg;
+}
+
+function refreshAll() {
+  updateDashboard();
+  renderStudentTable();
+  renderRecords();
+  renderReport();
+  document.getElementById('attDate').value = new Date().toISOString().split('T')[0];
+}
+
+document.getElementById('attDate').value = new Date().toISOString().split('T')[0];
+</script>
+
+</body>
+</html>
